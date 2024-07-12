@@ -42,6 +42,25 @@ func matchLine(line []byte, pattern string) (bool, error) {
 		return regexp.MatchString(pattern, string(line))
 	}
 
+	if bytes.ContainsRune([]byte(pattern), '[') && bytes.ContainsRune([]byte(pattern), ']') {
+		s := map[byte]struct{}{}
+		p := map[byte]struct{}{}
+
+		for _, b := range line {
+			s[b] = struct{}{}
+		}
+		for _, b := range pattern {
+			p[byte(b)] = struct{}{}
+		}
+
+		for k := range p {
+			if _, ok := s[k]; ok {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
 	if utf8.RuneCountInString(pattern) != 1 {
 		return false, fmt.Errorf("unsupported pattern: %q", pattern)
 	}

@@ -38,7 +38,7 @@ func main() {
 }
 
 func matchLine(line []byte, pattern string) (bool, error) {
-	if pattern == "\\d" {
+	if pattern == "\\d" || pattern == "\\w" || pattern == "\\s" {
 		return regexp.MatchString(pattern, string(line))
 	}
 

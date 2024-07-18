@@ -1,6 +1,7 @@
 package main
 
 type reTyp int
+type carTyp int
 
 const (
 	char reTyp = iota
@@ -9,13 +10,34 @@ const (
 	group
 	begin
 	end
+	cardinality
+)
+
+const (
+	optional carTyp = iota
+	single
+	multiple
+	any
 )
 
 type RE struct {
-	kind     reTyp
-	value    rune
-	subGroup []RE
-	negative bool
+	kind        reTyp
+	value       rune
+	subGroup    []RE
+	negative    bool
+	cardinality carTyp
+}
+
+func newSpec(kind reTyp) RE {
+	return RE{kind, '*', nil, false, single}
+}
+
+func newChar(c byte) RE {
+	return RE{char, rune(c), nil, false, single}
+}
+
+func newGroup(r []RE, neg bool) RE {
+	return RE{group, '*', r, neg, single}
 }
 
 func parse(expr string) []RE {
@@ -23,18 +45,15 @@ func parse(expr string) []RE {
 
 	for expr != "" {
 		if expr[0] == '\\' {
-			if len(expr) < 2 {
-				break
-			}
 			switch expr[1] {
 			case 'd':
-				re = append(re, RE{digit, '*', nil, false})
+				re = append(re, newSpec(digit))
 				expr = expr[2:]
 			case 'w':
-				re = append(re, RE{alpha, '*', nil, false})
+				re = append(re, newSpec(alpha))
 				expr = expr[2:]
 			default:
-				re = append(re, RE{char, '\\', nil, false})
+				re = append(re, newChar('\\'))
 				expr = expr[2:]
 			}
 		} else if expr[0] == '[' {
@@ -53,20 +72,37 @@ func parse(expr string) []RE {
 			charGroup := parse(expr[:i])
 
 			expr = expr[i+1:]
-			re = append(re, RE{group, '*', charGroup, negative})
+			re = append(re, newGroup(charGroup, negative))
 		} else if expr[0] == '^' {
-			re = append(re, RE{begin, '*', nil, false})
+			re = append(re, newSpec(begin))
 			expr = expr[1:]
 		} else if expr[0] == '$' {
-			re = append(re, RE{end, '*', nil, false})
+			re = append(re, newSpec(end))
+			expr = expr[1:]
+		} else if expr[0] == '+' {
+			re = append(re, newSpec(cardinality))
 			expr = expr[1:]
 		} else {
-			re = append(re, RE{char, rune(expr[0]), nil, false})
+			re = append(re, newChar(expr[0]))
 			expr = expr[1:]
 		}
 	}
 
+	return flattenCardinality(re)
+}
+
+func flattenCardinality(re []RE) []RE {
+	for i := 0; i < len(re); i++ {
+		if re[i].kind == cardinality {
+			re[i-1].cardinality = multiple // TODO: generalize
+			re = append(re[:i], re[i+1:]...)
+		}
+	}
 	return re
+}
+
+func remove(slice []int, s int) []int {
+	return append(slice[:s], slice[s+1:]...)
 }
 
 func isNumeric(r byte) bool {
@@ -118,6 +154,9 @@ func matchRecursive(r []RE, text string, i int) bool {
 		}
 	case char, digit, alpha:
 		if i < len(text) && matchSingle(text[i], re) {
+			if re.cardinality == multiple {
+				return matchRecursive(r, text, i+1) || matchRecursive(r[1:], text, i+1)
+			}
 			return matchRecursive(r[1:], text, i+1)
 		}
 	case group:
@@ -131,6 +170,9 @@ func matchRecursive(r []RE, text string, i int) bool {
 		} else {
 			for _, opt := range re.subGroup {
 				if matchSingle(text[i], opt) {
+					if re.cardinality == multiple {
+						return matchRecursive(r, text, i+1) || matchRecursive(r[1:], text, i+1)
+					}
 					return matchRecursive(r[1:], text, i+1)
 				}
 			}

@@ -42,6 +42,10 @@ func TestBase(t *testing.T) {
 		{`^log`, "llog", false},
 		{`dog$`, "dog", true},
 		{`dog$`, "dogg", false},
+		{`ca+ts`, "cats", true},
+		{`ca+ts`, "caaaats", true},
+		{`ca+ts`, "caabats", false},
+		{`c[abc]+ts`, "caabats", true},
 	}
 
 	for _, tc := range tt {
@@ -58,98 +62,115 @@ func TestParse(t *testing.T) {
 		expected []RE
 	}{
 		{"abc", []RE{
-			{char, 'a', nil, false},
-			{char, 'b', nil, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newChar('b'),
+			newChar('c'),
 		}},
 		{`a\dc`, []RE{
-			{char, 'a', nil, false},
-			{digit, '*', nil, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newSpec(digit),
+			newChar('c'),
 		}},
 		{`a\d`, []RE{
-			{char, 'a', nil, false},
-			{digit, '*', nil, false},
+			newChar('a'),
+			newSpec(digit),
 		}},
 		{`a\d\dc`, []RE{
-			{char, 'a', nil, false},
-			{digit, '*', nil, false},
-			{digit, '*', nil, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newSpec(digit),
+			newSpec(digit),
+			newChar('c'),
 		}},
 		{`\da\d\dc`, []RE{
-			{digit, '*', nil, false},
-			{char, 'a', nil, false},
-			{digit, '*', nil, false},
-			{digit, '*', nil, false},
-			{char, 'c', nil, false},
+			newSpec(digit),
+			newChar('a'),
+			newSpec(digit),
+			newSpec(digit),
+			newChar('c'),
 		}},
 		{`a\wc`, []RE{
-			{char, 'a', nil, false},
-			{alpha, '*', nil, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newSpec(alpha),
+			newChar('c'),
 		}},
 		{`a[abc]c`, []RE{
-			{char, 'a', nil, false},
-			{group, '*', []RE{
-				{char, 'a', nil, false},
-				{char, 'b', nil, false},
-				{char, 'c', nil, false},
-			}, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newGroup([]RE{
+				newChar('a'),
+				newChar('b'),
+				newChar('c'),
+			}, false),
+			newChar('c'),
 		}},
 		{`a[^abc]c`, []RE{
-			{char, 'a', nil, false},
-			{group, '*', []RE{
-				{char, 'a', nil, false},
-				{char, 'b', nil, false},
-				{char, 'c', nil, false},
-			}, true},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newGroup([]RE{
+				newChar('a'),
+				newChar('b'),
+				newChar('c'),
+			}, true),
+			newChar('c'),
 		}},
 		{`a[ab\db]c`, []RE{
-			{char, 'a', nil, false},
-			{group, '*', []RE{
-				{char, 'a', nil, false},
-				{char, 'b', nil, false},
-				{digit, '*', nil, false},
-				{char, 'b', nil, false},
-			}, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newGroup([]RE{
+				newChar('a'),
+				newChar('b'),
+				newSpec(digit),
+				newChar('b'),
+			}, false),
+			newChar('c'),
 		}},
 		{`a[ab\d]c`, []RE{
-			{char, 'a', nil, false},
-			{group, '*', []RE{
-				{char, 'a', nil, false},
-				{char, 'b', nil, false},
-				{digit, '*', nil, false},
-			}, false},
-			{char, 'c', nil, false},
+			newChar('a'),
+			newGroup([]RE{
+				newChar('a'),
+				newChar('b'),
+				newSpec(digit),
+			}, false),
+			newChar('c'),
 		}},
 		{`\d\\d\\d`, []RE{
-			{digit, '*', nil, false},
-			{char, '\\', nil, false},
-			{char, 'd', nil, false},
-			{char, '\\', nil, false},
-			{char, 'd', nil, false},
+			newSpec(digit),
+			newChar('\\'),
+			newChar('d'),
+			newChar('\\'),
+			newChar('d'),
 		}},
 		{`^log`, []RE{
-			{begin, '*', nil, false},
-			{char, 'l', nil, false},
-			{char, 'o', nil, false},
-			{char, 'g', nil, false},
+			newSpec(begin),
+			newChar('l'),
+			newChar('o'),
+			newChar('g'),
 		}},
 		{`dog$`, []RE{
-			{char, 'd', nil, false},
-			{char, 'o', nil, false},
-			{char, 'g', nil, false},
-			{end, '*', nil, false},
+			newChar('d'),
+			newChar('o'),
+			newChar('g'),
+			newSpec(end),
+		}},
+		{`ca+ts`, []RE{
+			newChar('c'),
+			{char, 'a', nil, false, multiple},
+			newChar('t'),
+			newChar('s'),
+		}},
+		{`[^abc]+e`, []RE{
+			{group, '*', []RE{
+				newChar('a'),
+				newChar('b'),
+				newChar('c'),
+			}, true, multiple},
+			newChar('e'),
+		}},
+		{`\d+`, []RE{
+			{digit, '*', nil, false, multiple},
 		}},
 	}
 	for _, tc := range tt {
 		received := parse(tc.expr)
 		if !reflect.DeepEqual(received, tc.expected) {
-			t.Errorf("case: %s, received: %v, wanted %v\n", tc.expr, received, tc.expected)
+			t.Errorf("\n\ncase: %s\nreceived:\t\t%v\nwanted:\t\t\t%v\n", tc.expr, received, tc.expected)
 		}
 	}
 }

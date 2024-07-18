@@ -8,6 +8,7 @@ const (
 	alpha
 	group
 	begin
+	end
 )
 
 type RE struct {
@@ -55,6 +56,9 @@ func parse(expr string) []RE {
 			re = append(re, RE{group, '*', charGroup, negative})
 		} else if expr[0] == '^' {
 			re = append(re, RE{begin, '*', nil, false})
+			expr = expr[1:]
+		} else if expr[0] == '$' {
+			re = append(re, RE{end, '*', nil, false})
 			expr = expr[1:]
 		} else {
 			re = append(re, RE{char, rune(expr[0]), nil, false})
@@ -107,6 +111,10 @@ func matchRecursive(r []RE, text string, i int) bool {
 	case begin:
 		if i == 0 {
 			return matchRecursive(r[1:], text, i)
+		}
+	case end:
+		if i == len(text) {
+			return true
 		}
 	case char, digit, alpha:
 		if i < len(text) && matchSingle(text[i], re) {

@@ -37,6 +37,9 @@ func TestBase(t *testing.T) {
 		{`[^xyz]`, "banana", true},
 		{`a[^xyz]b`, "abc", true},
 		{`a[^xyz]b`, "axc", false},
+		{`a[^xyz]b`, "axc", false},
+		{`^log`, "log", true},
+		{`^log`, "llog", false},
 	}
 
 	for _, tc := range tt {
@@ -127,6 +130,12 @@ func TestParse(t *testing.T) {
 			{char, 'd', nil, false},
 			{char, '\\', nil, false},
 			{char, 'd', nil, false},
+		}},
+		{`^log`, []RE{
+			{begin, '*', nil, false},
+			{char, 'l', nil, false},
+			{char, 'o', nil, false},
+			{char, 'g', nil, false},
 		}},
 	}
 	for _, tc := range tt {

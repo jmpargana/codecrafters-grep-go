@@ -10,7 +10,9 @@ const (
 	group
 	begin
 	end
-	cardinality
+	carMultiple
+	carOptional
+	carAny
 )
 
 const (
@@ -80,7 +82,13 @@ func parse(expr string) []RE {
 			re = append(re, newSpec(end))
 			expr = expr[1:]
 		} else if expr[0] == '+' {
-			re = append(re, newSpec(cardinality))
+			re = append(re, newSpec(carMultiple))
+			expr = expr[1:]
+		} else if expr[0] == '*' {
+			re = append(re, newSpec(carAny))
+			expr = expr[1:]
+		} else if expr[0] == '?' {
+			re = append(re, newSpec(carOptional))
 			expr = expr[1:]
 		} else {
 			re = append(re, newChar(expr[0]))
@@ -93,12 +101,25 @@ func parse(expr string) []RE {
 
 func flattenCardinality(re []RE) []RE {
 	for i := 0; i < len(re); i++ {
-		if re[i].kind == cardinality {
-			re[i-1].cardinality = multiple // TODO: generalize
+		switch re[i].kind {
+		case carMultiple, carOptional, carAny:
+			re[i-1].cardinality = getCardinality(re[i].kind)
 			re = append(re[:i], re[i+1:]...)
 		}
 	}
 	return re
+}
+
+func getCardinality(kind reTyp) carTyp {
+	switch kind {
+	case carMultiple:
+		return multiple
+	case carOptional:
+		return optional
+	case carAny:
+		return any
+	}
+	return single
 }
 
 func remove(slice []int, s int) []int {
@@ -153,7 +174,11 @@ func matchRecursive(r []RE, text string, i int) bool {
 			return true
 		}
 	case char, digit, alpha:
-		if i < len(text) && matchSingle(text[i], re) {
+		if i < len(text) && (matchSingle(text[i], re) || re.cardinality == optional) {
+			if re.cardinality == optional {
+				// FIXME: could need additional validation
+				return matchRecursive(r[1:], text, i+1) || matchRecursive(r[1:], text, i)
+			}
 			if re.cardinality == multiple {
 				return matchRecursive(r, text, i+1) || matchRecursive(r[1:], text, i+1)
 			}

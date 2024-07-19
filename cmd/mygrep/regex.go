@@ -13,6 +13,7 @@ const (
 	carMultiple
 	carOptional
 	carAny
+	wildcard
 )
 
 const (
@@ -90,6 +91,9 @@ func parse(expr string) []RE {
 		} else if expr[0] == '?' {
 			re = append(re, newSpec(carOptional))
 			expr = expr[1:]
+		} else if expr[0] == '.' {
+			re = append(re, newSpec(wildcard))
+			expr = expr[1:]
 		} else {
 			re = append(re, newChar(expr[0]))
 			expr = expr[1:]
@@ -142,6 +146,8 @@ func matchSingle(b byte, re RE) bool {
 		return isNumeric(b)
 	case alpha:
 		return isAlphaNumeric(b)
+	case wildcard:
+		return true
 	default:
 		return false
 	}
@@ -173,7 +179,7 @@ func matchRecursive(r []RE, text string, i int) bool {
 		if i == len(text) {
 			return true
 		}
-	case char, digit, alpha:
+	case char, digit, alpha, wildcard:
 		if i < len(text) && (matchSingle(text[i], re) || re.cardinality == optional) {
 			if re.cardinality == optional {
 				// FIXME: could need additional validation

@@ -56,6 +56,8 @@ func TestBase(t *testing.T) {
 		{`^[abc]?d`, "ad", true},
 		{`^[abc]?d`, "bd", true},
 		{`^[abc]?d`, "bbd", false},
+		{`d.g`, "dog", true},
+		{`d.g`, "doog", false},
 	}
 
 	for _, tc := range tt {
@@ -182,6 +184,11 @@ func TestParse(t *testing.T) {
 		{`\d?a`, []RE{
 			{digit, '*', nil, false, optional},
 			{char, 'a', nil, false, single},
+		}},
+		{`d.g`, []RE{
+			{char, 'd', nil, false, single},
+			{wildcard, '*', nil, false, single},
+			{char, 'g', nil, false, single},
 		}},
 	}
 	for _, tc := range tt {
